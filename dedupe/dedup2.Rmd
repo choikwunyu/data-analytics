@@ -1,0 +1,171 @@
+---
+title: "De-duplication"
+author: "Amenze & Demba (edits: Choi Kwun)"
+date: "June 28, 2018"
+output: html_document
+---
+
+Compare similarity between two numeric vectors using Symbolic Aggregate approXimation (SAX).
+#http://www.cs.ucr.edu/~eamonn/SAX.htm
+#https://jmotif.github.io/sax-vsm_site/morea/algorithm/PAA.html
+
+Coverts numeric vectors to string of idscreet characters
+Args:
+    x:vector values for uploadid x 
+    y:vector values for uploadid y
+    alpha.Size: alphabet size.
+Returns:
+    longeststring:longest common substring match between discretized values of x and y respectively                  stringX, stringY
+    percentage similarity between vector x and y
+
+Note: since PAA takes normalized values, vectors are normalized using the mean and standard deviation of either vector (x or y)
+PAA:the length of PAA values are fixed to length of the vectors to avoid reducing the dimensions since all values are needed to check for duplication. NB PAA reduces dimension by design. 
+```{r}
+require(readr)
+require(lintr)
+```
+
+```{r}
+StringConvert <- function(x, y, alpha.Size){
+  if (length(x) != length(y)){
+    normvalue = x
+  }
+  else if(length(x) == length(y)){
+    normvalue = x
+  }
+  normvalue.Mean <- mean(normvalue)
+  normvalue.Dev <- sd(normvalue)
+  xnormalized <- (x - normvalue.Mean) / normvalue.Dev
+  ynormalized <- (y - normvalue.Mean) / normvalue.Dev
+  X.PAA = paa(xnormalized, length(x)) 
+  y.PAA = paa(ynormalized,  length(y))
+  xString.Value <- series_to_string(X.PAA, alpha.Size)
+  yString.Value <- series_to_string(y.PAA, alpha.Size) 
+  stringX <- xString.Value
+  stringY <- yString.Value
+  longeststring<-LCSn(c(stringX,stringY))
+  return (list(longeststring, stringX, stringY, (levenshteinSim(xString.Value, yString.Value))))
+}
+```
+computes the range of matching character between string values and common subsequence
+  Args:
+    values: a list that contains two sequences of characters and the common their substring.
+
+  Returns:
+     Loc:range of indexes where the matching subsequence is found on each sequence of characters. 
+```{r}
+IndexRange <- function(values){
+  strings.Values <- as.character(c(values[2],values[3]))
+  common.SubSequence <- as.character(values[1])
+  loc <- str_locate(strings.Values, common.SubSequence)
+  return(list(loc))
+}
+```
+returns the duplicated values for each vector and their indexes 
+  Args:
+    x & y: vectors
+  Returns:
+     duplicated.X:duplicated value for vextor x
+     duplicated.Y:duplicated value for vextor y
+     index.X:duplicated values index for vector x
+     index.Y:duplicated values index for vector y
+```{r}
+ExtractDuplicateIndex <- function(x, y){
+   duplicate.X <- x[IndexRange[[1]][1,][1] : IndexRange[[1]][1,][2], "value"]
+   duplicate.Y <- y[IndexRange[[1]][2,][1] : IndexRange[[1]][2,][2], "value"]
+   index.X <- row.names(x[IndexRange[[1]][1,][1] : IndexRange[[1]][1,][2],])
+   index.Y <- row.names(y[IndexRange[[1]][2,][1] : IndexRange[[1]][2,][2],])
+return(list(duplicate.X, duplicate.Y, index.X, index.Y))
+}
+```
+Generates a list of indexes 
+  Args:
+    x: list of vectors
+  Returns:
+    duplicate.Index: indexes of duplicated values in the dataframe where the vectors were selected from.
+```{r}
+ExtractVectorIndex<-function(x){
+  for (i in 1:length(x))
+  indexnum <- c(x[[i]]) 
+  duplicate.Index <- as.numeric(indexnum)
+return(duplicate.Index)
+}
+```
+
+Import files and subset dataframe based on uploadIds and relevant features.
+
+```{r}
+##read in file and check for duplicated utc
+field<-c("deviceId","id","uploadId","utcTime","type","value")
+
+patient<-read_csv("~/Documents/Tidepool/data-analytics/dedupe/data/0ab293f2e1cc4141cd10bfbd5d51664992b1c63c79ac45e548417154e4ecde43.csv")
+# patient <- read.csv(choose.files())[,field]
+patient <- subset(patient,patient$type=="cbg")
+# Converting blood glucose values from (mmolL)??? to milligram per deciliter (mg/DL)
+patient$mgd <- patient$value*18.01559
+
+#check for unique uploadIds
+uniqueid <- function(df){
+  Id<-unique(df$utcTime)
+  return (Id)
+}
+unique_ids <- uniqueid(patient)
+df1 <- subset(patient, patient$uploadId == "upid_3c41703c2d3a8b97f479afdb6ccf799f")
+df2 <- subset(patient, patient$uploadId == "upid_3fc32e5ad912a8ea7efced9151804bdb")
+df3 <- subset(patient, patient$uploadId == "upid_17db2d2a0ae0e02a12c0a5067e5fe85b")
+df4 <- subset(patient, patient$uploadId == "upid_5fad608cf32bd03a1cd56e3bb1fdb834")
+df5 <- subset(patient, patient$uploadId == "upid_830c6de3e2ecbbec6fbad0cecc64bdf5")
+```
+
+```{r}
+values <- StringConvert(df3$mgvalue,df4$mgvalue,3 ) #http://www.cs.ucr.edu/~eamonn/SAX.pdf alphabet size: 5-8 works better. ##3 worked better for this run
+strngindex <- IndexRange(values)
+validate <- ExtractDuplicateIndex(df3,df4,strngindex)
+seq1 <- ExtractVectorIndex(validate[3])
+seq2 <- ExtractVectorIndex(validate[4])
+
+df1_mgvalue <- patient[seq1,"value"]
+df2_mgvalue <- patient[seq2,"value"]
+compare <- data.frame(df1_mgvalue,df2_mgvalue)
+
+
+plot.zoo(cbind(compare$df1_mgvalue,compare$df2_mgvalue), 
+         plot.type = "multiple", 
+         col = c("red", "blue"))
+
+sum(compare$df1_mgvalue-compare$df2_mgvalue)
+```
+
+
+```{r}
+patient<-read.csv("duplicated0fe539475b52ae23f939d7dd2596cf8eb1e877edcea0478f2df73bb98bd5937c.csv")[,field]
+patient$mgvalue<-patient$value*18.01559
+length(unique(patient$uploadId)) #2
+length(unique(patient$id))==nrow(patient) ##True
+length(unique(patient$utcTime))# 8899
+anyDuplicated(patient$utcTime) #4366
+length(unique(patient$utcTime))==nrow(patient) #False
+df1<-subset(patient,patient$uploadId=="2f61322480c841fd8679fe81e94930b2")
+df2<-subset(patient,patient$uploadId=="c05970591b404518a1cbd64595d628e5")
+```
+
+
+```{r}
+values <- StringConvert(df1$mgvalue,df2$mgvalue,3)
+strngindex <- IndexRange(values)
+validate <- ExtractDuplicateIndex(df1,df2,strngindex)
+seq1 <- ExtractVectorIndex(validate[3])
+seq2 <- ExtractVectorIndex(validate[4])
+
+df1_mgvalue<-patient[seq1,"value"]
+df2_mgvalue<-patient[seq2,"value"]
+compare<-data.frame(df1_mgvalue,df2_mgvalue)
+
+plot.zoo(cbind(compare$df1_mgvalue,compare$df2_mgvalue), 
+         plot.type = "multiple", 
+         col = c("red", "blue"))
+sum(compare$df1_mgvalue-compare$df2_mgvalue)
+
+```
+
+
