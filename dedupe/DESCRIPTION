@@ -1,0 +1,3 @@
+Package: compendium
+Version: 0.1.0
+Depends: readr, lintr, stringr, spider, jmotif, PTXQC, RecordLinkage, zoo
