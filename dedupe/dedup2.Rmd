@@ -110,8 +110,7 @@ Import files and subset dataframe based on uploadIds and relevant features.
 
 ```{r reading-in-data}
 ##read in file and check for duplicated utc
-field <- c("deviceId","id","uploadId","utcTime","type","value")
-
+field <- c("deviceId","id","uploadId","time","type","value")
 patient <- read_csv("~/Documents/Tidepool/data-analytics/dedupe/data/0ab293f2e1cc4141cd10bfbd5d51664992b1c63c79ac45e548417154e4ecde43.csv")
 # patient <- read.csv(choose.files())[,field]
 patient <- subset(patient,patient$type == "cbg")
