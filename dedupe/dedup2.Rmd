@@ -101,7 +101,7 @@ return(duplicate.Index)
 ```{r uniqueid-function}
 #check for unique uploadIds
 uniqueid <- function(df){
-  Id <- unique(df$utcTime)
+  Id <- unique(df$uploadId)
   return(Id)
   }
 ```
@@ -110,21 +110,24 @@ Import files and subset dataframe based on uploadIds and relevant features.
 
 ```{r reading-in-data}
 ##read in file and check for duplicated utc
-field <- c("deviceId","id","uploadId","time","type","value")
+cols <- c("deviceId","id","uploadId","time","type","value")
 patient <- read_csv("~/Documents/Tidepool/data-analytics/dedupe/data/0ab293f2e1cc4141cd10bfbd5d51664992b1c63c79ac45e548417154e4ecde43.csv")
+patient[cols] <- lapply(patient[cols], factor)
 # patient <- read.csv(choose.files())[,field]
-patient <- subset(patient,patient$type == "cbg")
+patient_cbg <- subset(patient,patient$type == "cbg")
 # Converting blood glucose values from (mmolL)??? to milligram per deciliter (mg/DL)
-patient$mgd <- patient$value*18.01559
+patient_cbg$mgd <- patient_cbg$value*18.01559
 ```
 
 ```{r getting-uniqueids}
-unique_ids <- uniqueid(patient)
-df1 <- subset(patient, patient$uploadId == "upid_3c41703c2d3a8b97f479afdb6ccf799f")
-df2 <- subset(patient, patient$uploadId == "upid_3fc32e5ad912a8ea7efced9151804bdb")
-df3 <- subset(patient, patient$uploadId == "upid_17db2d2a0ae0e02a12c0a5067e5fe85b")
-df4 <- subset(patient, patient$uploadId == "upid_5fad608cf32bd03a1cd56e3bb1fdb834")
-df5 <- subset(patient, patient$uploadId == "upid_830c6de3e2ecbbec6fbad0cecc64bdf5")
+unique_ids <- uniqueid(patient_cbg)
+
+# df_list <- split(patient_cbg , as.factor(patient_cbg$uploadId))
+for (i in length(unique_ids)) {
+  # unique_ids[i] <- patient_cbg[which(patient_cbg$uploadId %in% unique_ids[i]), ]
+  unique_ids[i] <- subset(patient_cbg, uploadId == unique_ids[i])
+}
+
 ```
 
 
