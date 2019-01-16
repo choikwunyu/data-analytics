@@ -101,7 +101,8 @@ return(duplicate.Index)
 ```{r uniqueid-function}
 #check for unique uploadIds
 uniqueid <- function(df){
-  Id <- unique(df$uploadId)
+  Id <- levels(factor(df$uploadId))  
+  # Id <- unique(df$uploadId)
   return(Id)
   }
 ```
@@ -110,43 +111,52 @@ Import files and subset dataframe based on uploadIds and relevant features.
 
 ```{r reading-in-data}
 ##read in file and check for duplicated utc
-cols <- c("deviceId","id","uploadId","time","type","value")
-patient <- read_csv("~/Documents/Tidepool/data-analytics/dedupe/data/0ab293f2e1cc4141cd10bfbd5d51664992b1c63c79ac45e548417154e4ecde43.csv")
+cols <- c("deviceId","id","uploadId","type")
+patient <- read_csv("/Users/BlauBear/Documents/Tidepool/data-analytics/dedupe/data0ab293f2e1cc4141cd10bfbd5d51664992b1c63c79ac45e548417154e4ecde43.csv")
 patient[cols] <- lapply(patient[cols], factor)
-# patient <- read.csv(choose.files())[,field]
 patient_cbg <- subset(patient,patient$type == "cbg")
 # Converting blood glucose values from (mmolL)??? to milligram per deciliter (mg/DL)
 patient_cbg$mgd <- patient_cbg$value*18.01559
+patient$uploadId <- as.factor(patient$uploadId)
 ```
 
 ```{r getting-uniqueids}
 unique_ids <- uniqueid(patient_cbg)
 
-# df_list <- split(patient_cbg , as.factor(patient_cbg$uploadId))
-for (i in length(unique_ids)) {
-  # unique_ids[i] <- patient_cbg[which(patient_cbg$uploadId %in% unique_ids[i]), ]
-  unique_ids[i] <- subset(patient_cbg, uploadId == unique_ids[i])
+uploadsets <- list()
+
+for (i in 1:length(unique_ids)) {
+  temp <- subset(patient_cbg, uploadId == unique_ids[i])
+  # uploadsets[[i]] <- temp
+  assign(unique_ids[i], temp)
 }
 
 ```
 
 
 ```{r}
-values <- StringConvert(df3$mgvalue,df4$mgvalue,3 ) #http://www.cs.ucr.edu/~eamonn/SAX.pdf alphabet size: 5-8 works better. ##3 worked better for this run
-strngindex <- IndexRange(values)
-validate <- ExtractDuplicateIndex(df3,df4)
-seq1 <- ExtractVectorIndex(validate[3])
-seq2 <- ExtractVectorIndex(validate[4])
+comparision_funct <- function(df1, df2){
+  values <- StringConvert(df1$mgd,df2$mgd,3 ) #http://www.cs.ucr.edu/~eamonn/SAX.pdf alphabet size: 5-8 works better. ##3 worked better for this run
+  strngindex <- IndexRange(values)
+  validate <- ExtractDuplicateIndex(df1,df2)
+  seq1 <- ExtractVectorIndex(validate[3])
+  seq2 <- ExtractVectorIndex(validate[4])
 
-df1_mgvalue <- patient[seq1,"value"]
-df2_mgvalue <- patient[seq2,"value"]
-compare <- data.frame(df1_mgvalue,df2_mgvalue)
+  df1_mgvalue <- patient[seq1,"value"]
+  df2_mgvalue <- patient[seq2,"value"]
+  compare <- data.frame(df1_mgvalue,df2_mgvalue)
 
-plot.zoo(cbind(compare$df1_mgvalue,compare$df2_mgvalue), 
+  plot.zoo(cbind(compare$df1_mgvalue,compare$df2_mgvalue), 
          plot.type = "multiple", 
          col = c("red", "blue"))
 
-sum(compare$df1_mgvalue - compare$df2_mgvalue)
+  sum(compare$df1_mgvalue - compare$df2_mgvalue)
+}
+```
+
+```{r}
+# comparision_funct(data.frame(uploadsets[[1]]),data.frame(uploadsets[[2]]))
+comparision_funct(upid_066b389ed302,upid_01768d2f5d30)
 ```
 
 
